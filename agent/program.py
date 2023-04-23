@@ -17,6 +17,12 @@ class Agent:
         Initialise the agent.
         """
         self._color = color
+
+        #we will set up a list with all the cells
+        #following project part a, the format for the list
+        #will be []
+        boardstate = []
+
         match color:
             case PlayerColor.RED:
                 print("Testing: I am playing as red")
@@ -41,7 +47,10 @@ class Agent:
         match action:
             case SpawnAction(cell):
                 print(f"Testing: {color} SPAWN at {cell}")
+                self.boardstate.append([])
+
                 pass
             case SpreadAction(cell, direction):
                 print(f"Testing: {color} SPREAD from {cell}, {direction}")
                 pass
+    
