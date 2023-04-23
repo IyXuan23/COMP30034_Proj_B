@@ -20,8 +20,8 @@ class Agent:
 
         #we will set up a list with all the cells
         #following project part a, the format for the list
-        #will be []
-        boardstate = []
+        #will be [colour, power] of the cell
+        self.boardstate = {}
 
         match color:
             case PlayerColor.RED:
@@ -47,10 +47,32 @@ class Agent:
         match action:
             case SpawnAction(cell):
                 print(f"Testing: {color} SPAWN at {cell}")
-                self.boardstate.append([])
-
+                
+                #just add the cell into the list
+                self.boardstate[cell] = [color, 1]
                 pass
+
             case SpreadAction(cell, direction):
                 print(f"Testing: {color} SPREAD from {cell}, {direction}")
+
+                #add power and change colour if necessary if cell is already
+                #infected, otherwise add the cell
+                currCellPower = self.boardstate[cell]
+
+                newCellPos = cell
+                for i in range(0, currCellPower):
+                    
+                    newCellPos.__add__(direction)
+                    
+                    #if new Pos has no cell, add one
+                    if self.boardstate[newCellPos] == None:
+
+                        self.boardstate[newCellPos] = [color, 1]
+                    else:
+                        temp = self.boardstate[newCellPos]
+                        temp[0] = color
+                        temp[1] += 1
+                        self.boardstate[newCellPos] = temp    
+
                 pass
     
