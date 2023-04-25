@@ -3,7 +3,7 @@
 
 from referee.game import \
     PlayerColor, Action, SpawnAction, SpreadAction, HexPos, HexDir
-
+from datetime import datetime, timedelta
 
 # This is the entry point for your game playing agent. Currently the agent
 # simply spawns a token at the centre of the board if playing as RED, and
@@ -17,6 +17,9 @@ class Agent:
         Initialise the agent.
         """
         self._color = color
+
+        time = referee["time_remaining"]
+        print(time)
 
         #we will set up a list with all the cells
         #following project part a, the format for the list
@@ -76,3 +79,68 @@ class Agent:
 
                 pass
     
+#we shall use this program to set up data structures necessary for 
+#an implementation of the Monte Carlo Tree Search (MCTS)
+
+from agent.program import Agent
+
+
+class Node:
+
+    def __init__(self, player: int, boardstate: dict, parentNode = None,):
+        
+        #which player is making the move, to simulate best/worse outcomes
+        #0 will be us, 1 will simulate the opp player
+        self.player = player
+
+        #the list of child nodes that spawn from the current node
+        self.childNodes = []
+
+        #parent node of the current node
+        self.parentNode = parentNode
+
+        self.totalGames = 0
+        self.wonGames = 0
+
+        self.boardstate = boardstate
+
+    def addChildNode(self, childNode):
+
+        self.childNodes.append(childNode)
+
+    def backPropagateWin(self, player: int):
+
+        currNode = self
+
+        while (currNode != None):
+            
+            if (currNode.player == player):
+
+                currNode.totalGames += 1
+                currNode.wonGames += 1
+
+            else:
+
+                currNode.totalGames += 1
+
+            currNode = currNode.parentNode
+
+def MCTS(boardstate: dict, agent: Agent) -> list:
+
+    now = datetime.now()
+    timeRemaining = agent.time/20
+    limit = now + timedelta(seconds=timeRemaining)
+    
+    #player colour to be adjusted
+    root = Node(1, boardstate, None)
+
+    while (datetime.now() < limit):
+
+        #perform MCTS
+        #selecting a leaf node
+        
+
+
+    #return the best move
+    return
+
