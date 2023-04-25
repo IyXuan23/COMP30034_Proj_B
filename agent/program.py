@@ -4,6 +4,7 @@
 from referee.game import \
     PlayerColor, Action, SpawnAction, SpreadAction, HexPos, HexDir
 from datetime import datetime, timedelta
+from math import sqrt, log
 
 # This is the entry point for your game playing agent. Currently the agent
 # simply spawns a token at the centre of the board if playing as RED, and
@@ -133,14 +134,39 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
     
     #player colour to be adjusted
     root = Node(1, boardstate, None)
-
+    
     while (datetime.now() < limit):
-
-        #perform MCTS
-        #selecting a leaf node
         
+        currNode = root
+        #perform MCTS
+        #selecting a leaf node, if not at leaf node, traverse down
+        while (len(currNode.childNodes) != 0):
+                
+                #using UCB1 to select the best nodes amongst the child nodes
+                bestChild = None
+                bestVal = -1
+
+                for child in currNode.childNodes:
+
+                    currVal = calcUCB1(child)
+                    
+                    if currVal > bestVal:
+                        bestVal = currVal
+                        bestChild = child
+
+                currNode = bestChild
+
+        #now at leaf node, we shall expand the node
+                
 
 
     #return the best move
     return
 
+def calcUCB1(childNode: Node) -> float:
+
+    x = float(childNode.wonGames/childNode.totalGames)
+    #constant 2 here may change depending on exploration etc.
+    y = 2 * sqrt(log(childNode.parentNode.totalGames)/(childNode.totalGames))
+
+    return (x + y)
