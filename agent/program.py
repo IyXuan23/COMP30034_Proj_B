@@ -102,8 +102,10 @@ class Node:
 
         self.totalGames = 0
         self.wonGames = 0
+        self.simulated = False
 
         self.boardstate = boardstate
+        
 
     def addChildNode(self, childNode):
 
@@ -128,6 +130,10 @@ class Node:
 
 def MCTS(boardstate: dict, agent: Agent) -> list:
 
+    #for this, we will allocate 5% of the remaining time for the algorithm to run??
+    #may be changed
+    #inspired by chess players, who spend more time thinking in the initial stages
+    #of the game as there are more moves available
     now = datetime.now()
     timeRemaining = agent.time/20
     limit = now + timedelta(seconds=timeRemaining)
@@ -149,24 +155,73 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
                 for child in currNode.childNodes:
 
                     currVal = calcUCB1(child)
+
+                    #if node has never been simulated, simulate it immediately
+                    #and forgo selection of best node
+                    if (currVal == -1):
+                        currNode = bestChild
+                        break
                     
+                    #else we compare to find best node to expand
                     if currVal > bestVal:
                         bestVal = currVal
                         bestChild = child
 
-                currNode = bestChild
+                currNode = bestChild        
 
-        #now at leaf node, we shall expand the node
-                
+        #now at leaf node, we simulate if no simulation done yet
+        if (currNode.totalGames == 0):
+            
+            score = simulateNode(currNode)
+            
+
+            currPlayer = currNode.player
+            backPropagate(currNode, currPlayer, score)
 
 
     #return the best move
     return
 
+#function used to calculateUCB1 value
 def calcUCB1(childNode: Node) -> float:
+
+    if (childNode.totalGames == 0):
+        return -1
 
     x = float(childNode.wonGames/childNode.totalGames)
     #constant 2 here may change depending on exploration etc.
     y = 2 * sqrt(log(childNode.parentNode.totalGames)/(childNode.totalGames))
 
     return (x + y)
+
+def simulateNode(currNode: Node) -> int:
+
+    #to be completed??
+    #need heurisitic for play simulation
+    #should return 1 if won, 0 if lost
+
+    return 0
+
+#function will back propagate the results, adding 1 to total games 
+#and additionally adding 1 to the GamesWon of the player who "played"
+#the current node
+def backPropagate(childNode: Node, player: int, score: int):
+
+    currNode = childNode
+    
+    while (currNode != None):
+        currNode.totalGames += 1
+        
+        #owner player won, add 1 to all his nodes
+        if (score == 1):
+            if (currNode.player == player):
+                currNode.wonGames += 1
+
+        #owner player lost, add 1 to all opp nodes
+        else:
+            if (currNode.player != player):
+                currNode.wonGames += 1    
+
+        currNode = currNode.parentNode
+
+    return

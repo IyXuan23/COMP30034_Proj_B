@@ -1,0 +1,10 @@
+//added this text file for personnel use
+
+1. I'll be trying to use MCTS as an algorithm
+
+2. Need to figure out a heuristic for maximum play, for use when simulating a leaf node using MCTS
+
+3. Keep track of time and memory left (time i figured, memory unsure)
+
+4. Move and prune and redo the Monte Carlo Tree accordingly as the game progresses, so as to save space
+and also to make the algorthm more efficient.
