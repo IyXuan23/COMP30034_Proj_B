@@ -128,7 +128,7 @@ class Node:
 
             currNode = currNode.parentNode
 
-def MCTS(boardstate: dict, agent: Agent) -> list:
+def MCTS(boardstate: dict, agent: Agent, root: Node) -> list:
 
     #for this, we will allocate 5% of the remaining time for the algorithm to run??
     #may be changed
@@ -139,11 +139,11 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
     limit = now + timedelta(seconds=timeRemaining)
     
     #player colour to be adjusted
-    root = Node(1, boardstate, None)
+    rootNode = root
     
     while (datetime.now() < limit):
         
-        currNode = root
+        currNode = rootNode
         #perform MCTS
         #selecting a leaf node, if not at leaf node, traverse down
         while (len(currNode.childNodes) != 0):
@@ -172,7 +172,7 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
         #now at leaf node, we simulate if no simulation done yet
         if (currNode.totalGames == 0):
             
-            score = simulateNode(currNode)
+            score = simulateNode(currNode, agent._color)
             
 
             currPlayer = currNode.player
@@ -194,13 +194,42 @@ def calcUCB1(childNode: Node) -> float:
 
     return (x + y)
 
-def simulateNode(currNode: Node) -> int:
+#function will be used to simulate the Nodes all the way to the goal state
+#in this particularly case we limit it to a max of 30 moves for time
+def simulateNode(currNode: Node, color: PlayerColor) -> int:
 
-    #to be completed??
-    #need heurisitic for play simulation
+    moves = 0
+    #make a copy of the boardstate that we will manipulate
+    simulatedBoardstate = currNode.boardstate.copy()
+
+    while (moves < 30):
+        
+        #add heurisitc for moving here
+        if ((moves % 2) == 0):
+            moveHeuristic(simulatedBoardstate, color)
+        else:
+            moveHeuristic(simulatedBoardstate, color)
+
+        moves+= 1
+
+    #win condition: since it is unlikely we can simulate until an end goal
+    #is achieved, after 15 moves from each side, we count the number of points from
+    #both ends and the side with more points shall be considered the "winner"
+    numOwnCells = 0
+    numOppCells = 0
+
+    for cell in simulatedBoardstate.values():
+
+        if cell[0] == color:
+            numOwnCells += cell[1]
+        else:
+            numOppCells += cell[1]   
+
     #should return 1 if won, 0 if lost
-
-    return 0
+    if numOwnCells > numOppCells:
+        return 1
+    else:
+        return 0
 
 #function will back propagate the results, adding 1 to total games 
 #and additionally adding 1 to the GamesWon of the player who "played"
@@ -223,5 +252,9 @@ def backPropagate(childNode: Node, player: int, score: int):
                 currNode.wonGames += 1    
 
         currNode = currNode.parentNode
+
+    return
+
+def moveHeuristic(boardstate: dict, player: int):
 
     return
