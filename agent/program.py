@@ -17,6 +17,8 @@ class Agent:
         """
         Initialise the agent.
         """
+
+        #Note to self: red starts first always
         self._color = color
 
         time = referee["time_remaining"]
@@ -37,12 +39,20 @@ class Agent:
         """
         Return the next action to take.
         """
-        match self._color:
-            case PlayerColor.RED:
-                return SpawnAction(HexPos(3, 3))
-            case PlayerColor.BLUE:
-                # This is going to be invalid... BLUE never spawned!
-                return SpreadAction(HexPos(3, 3), HexDir.Up)
+        if len(self.boardstate) == 0:
+            return SpawnAction(HexPos(3, 3))
+        
+        else:
+            MCTS(self.boardstate, self)
+
+        #match self._color:
+        #    case PlayerColor.RED:
+        #        return SpawnAction(HexPos(3, 3))
+        #    case PlayerColor.BLUE:
+        #        # This is going to be invalid... BLUE never spawned!
+        #        return SpreadAction(HexPos(3, 3), HexDir.Up)
+            
+            
 
     def turn(self, color: PlayerColor, action: Action, **referee: dict):
         """
@@ -85,10 +95,10 @@ class Agent:
 
 from agent.program import Agent
 
-
+#structure for a singular node in the MCTS tree
 class Node:
 
-    def __init__(self, player: int, boardstate: dict, parentNode = None,):
+    def __init__(self, player: int, boardstate: dict, depth: int, parentNode = None,):
         
         #which player is making the move, to simulate best/worse outcomes
         #0 will be us, 1 will simulate the opp player
@@ -105,12 +115,15 @@ class Node:
         self.simulated = False
 
         self.boardstate = boardstate
+
+        self.depth = depth
         
 
     def addChildNode(self, childNode):
 
         self.childNodes.append(childNode)
 
+    #function to back propagate scores after simulation
     def backPropagateWin(self, player: int):
 
         currNode = self
@@ -128,7 +141,7 @@ class Node:
 
             currNode = currNode.parentNode
 
-def MCTS(boardstate: dict, agent: Agent, root: Node) -> list:
+def MCTS(boardstate: dict, agent: Agent) -> list:
 
     #for this, we will allocate 5% of the remaining time for the algorithm to run??
     #may be changed
@@ -139,7 +152,7 @@ def MCTS(boardstate: dict, agent: Agent, root: Node) -> list:
     limit = now + timedelta(seconds=timeRemaining)
     
     #player colour to be adjusted
-    rootNode = root
+    rootNode = Node(0, boardstate, 0)
     
     while (datetime.now() < limit):
         
@@ -170,14 +183,21 @@ def MCTS(boardstate: dict, agent: Agent, root: Node) -> list:
                 currNode = bestChild        
 
         #now at leaf node, we simulate if no simulation done yet
-        if (currNode.totalGames == 0):
+        if (currNode.totalGames == 0 and currNode.depth != 0):
             
-            score = simulateNode(currNode, agent._color)
+            score = simulateNode(currNode, agent._color, agent)
             
-
             currPlayer = currNode.player
             backPropagate(currNode, currPlayer, score)
 
+        #simulated, but no children
+        if (len(currNode.childNodes) == 0):
+
+            #create the child nodes
+            createChildNodes(currNode, agent)
+
+    #after time has run out
+    
 
     #return the best move
     return
@@ -196,7 +216,7 @@ def calcUCB1(childNode: Node) -> float:
 
 #function will be used to simulate the Nodes all the way to the goal state
 #in this particularly case we limit it to a max of 30 moves for time
-def simulateNode(currNode: Node, color: PlayerColor) -> int:
+def simulateNode(currNode: Node, color: PlayerColor, agent: Agent) -> int:
 
     moves = 0
     #make a copy of the boardstate that we will manipulate
@@ -206,9 +226,9 @@ def simulateNode(currNode: Node, color: PlayerColor) -> int:
         
         #add heurisitc for moving here
         if ((moves % 2) == 0):
-            moveHeuristic(simulatedBoardstate, color)
+            moveHeuristic(simulatedBoardstate, agent)
         else:
-            moveHeuristic(simulatedBoardstate, color)
+            moveHeuristic(simulatedBoardstate, agent)
 
         moves+= 1
 
@@ -226,10 +246,10 @@ def simulateNode(currNode: Node, color: PlayerColor) -> int:
             numOppCells += cell[1]   
 
     #should return 1 if won, 0 if lost
-    if numOwnCells > numOppCells:
-        return 1
-    else:
-        return 0
+        if numOwnCells > numOppCells:
+            return 1
+        else:
+            return 0
 
 #function will back propagate the results, adding 1 to total games 
 #and additionally adding 1 to the GamesWon of the player who "played"
@@ -255,6 +275,86 @@ def backPropagate(childNode: Node, player: int, score: int):
 
     return
 
-def moveHeuristic(boardstate: dict, player: int):
+#function will be the heuristic used to determine moves
+#for simulation of the node during MCTS
+def moveHeuristic(boardstate: dict, agent: Agent):
 
+    ownNumCells = 0
+    oppNumCells = 0
+
+    #due to the nature of the infinite board, the first move
+    #of spawning can go anywhere, so 
+    if len(boardstate) == 0:
+        return SpawnAction(HexPos(3, 3))
+    
+    else:
+        #we shall classify our situation for 2 modes
+        #if we have an (almost) equal amount of nodes
+        #we shall play it safe - trading system
+         
+        #if we are at a disadvantage, we will make more aggressive moves
+        #to attempt to equalise the balance
+
+        for cell in boardstate.items():
+            if cell[1][0] == agent._color:
+                ownNumCells += 1
+            else:
+                oppNumCells += 1
+
+        #insert obvious play = if opp is attacking our board, cells
+        #right beside ours
+        for cell in boardstate.items():
+            if cell[1][0] == agent._color:
+                #check other cells surrounding cell
+                for dir in HexDir:
+                    newPos = cell[0].__add__(dir)
+
+                    #if opponent cell exists
+                    if (boardstate.get(newPos) != None):
+                        if (boardstate.get(newPos)[1][0] != agent._color):
+                            #cell in danger zone
+
+        if (float(ownNumCells/oppNumCells) < 0.8):
+            #play aggressively            
+        else:
+            
+            #reinforce own position
     return
+
+#function will handle the logic of branching the leaf nodes
+#for MCTS
+def createChildNodes(currNode: Node, agent: Agent):
+
+    for cell in currNode.boardstate.items():
+
+        cellColor = cell[1][0]
+        cellPower = cell[1][1]
+        #note to self: cellCoord to a HexPos
+        cellCoord = cell[0]
+
+        if cellColor == agent._color:
+
+            for dir in HexDir:
+
+                #create a leaf node:
+                newBoardstate = currNode.boardstate.copy()
+
+                for power in range(0, cellPower):
+                    
+                    #ensure that if we exit and re-enter the board, the coords update
+                    #correctly by not exceeding 7
+                    cellCoord = cellCoord.__add__(dir)          
+
+                #if existing cell is in place, overwrite it and +1 to the existing power,
+                #otherwise create a new cell in the spot
+                if (newBoardstate.get(cellCoord) == None):
+                    newBoardstate[cellCoord] = (cellColor, 1)
+                else:
+                    newPower = newBoardstate.get(cellCoord)[1] + 1
+                    newBoardstate[cellCoord] = (cellColor, newPower)    
+
+                #deleting original expended cell
+                newBoardstate.pop(cellCoord)    
+
+                newNode = Node(1, newBoardstate, (currNode.depth+1), currNode)
+                currNode.addChildNode(newNode)
