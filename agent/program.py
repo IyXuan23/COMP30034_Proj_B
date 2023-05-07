@@ -21,12 +21,11 @@ class Agent:
         #Note to self: red starts first always
         self._color = color
 
-        time = referee["time_remaining"]
-        print(time)
+        self.time = referee["time_remaining"]
 
         #we will set up a list with all the cells
         #following project part a, the format for the list
-        #will be [colour, power] of the cell
+        #will be [coords] : [colour, power] of the cell
         self.boardstate = {}
 
         match color:
@@ -39,10 +38,21 @@ class Agent:
         """
         Return the next action to take.
         """
+
+        #first move starting 1st (as red)
         if len(self.boardstate) == 0:
             return SpawnAction(HexPos(3, 3))
         
+        #first move starting 2nd (as blue)
+        if (len(self.boardstate) == 1):
+            if (self.boardstate.values[0][1] == 1):
+                
+                pos = self.boardstate.keys[0].__add__(HexDir.DownRight)
+                pos = pos.__add__(HexDir.DownRight)
+                return SpawnAction(HexPos(pos))
+
         else:
+            print("MCTS")
             MCTS(self.boardstate, self)
 
         #match self._color:
@@ -117,8 +127,9 @@ class Node:
         self.boardstate = boardstate
 
         self.depth = depth
+        self.lastmove = None
         
-
+    #function will append a childnode to the list of child nodes
     def addChildNode(self, childNode):
 
         self.childNodes.append(childNode)
@@ -141,6 +152,8 @@ class Node:
 
             currNode = currNode.parentNode
 
+#function for performing Monte Carlo Tree Search, will return the optimal move derived
+#from said search
 def MCTS(boardstate: dict, agent: Agent) -> list:
 
     #for this, we will allocate 5% of the remaining time for the algorithm to run??
@@ -196,11 +209,9 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
             #create the child nodes
             createChildNodes(currNode, agent)
 
-    #after time has run out
-    
-
-    #return the best move
-    return
+    #after time has run out, return the best move
+    print("returning best move")
+    return findBestMove(rootNode)
 
 #function used to calculateUCB1 value
 def calcUCB1(childNode: Node) -> float:
@@ -225,12 +236,15 @@ def simulateNode(currNode: Node, color: PlayerColor, agent: Agent) -> int:
     while (moves < 30):
         
         #add heurisitc for moving here
+        ??
         if ((moves % 2) == 0):
             moveHeuristic(simulatedBoardstate, agent)
         else:
             moveHeuristic(simulatedBoardstate, agent)
 
         moves+= 1
+
+    currNode.simulated = True    
 
     #win condition: since it is unlikely we can simulate until an end goal
     #is achieved, after 15 moves from each side, we count the number of points from
@@ -279,47 +293,80 @@ def backPropagate(childNode: Node, player: int, score: int):
 #for simulation of the node during MCTS
 def moveHeuristic(boardstate: dict, agent: Agent):
 
-    ownNumCells = 0
-    oppNumCells = 0
-
     #due to the nature of the infinite board, the first move
     #of spawning can go anywhere, so 
     if len(boardstate) == 0:
         return SpawnAction(HexPos(3, 3))
     
     else:
-        #we shall classify our situation for 2 modes
-        #if we have an (almost) equal amount of nodes
-        #we shall play it safe - trading system
-         
-        #if we are at a disadvantage, we will make more aggressive moves
-        #to attempt to equalise the balance
+
+        dangerCells = []
 
         for cell in boardstate.items():
             if cell[1][0] == agent._color:
-                ownNumCells += 1
-            else:
-                oppNumCells += 1
 
-        #insert obvious play = if opp is attacking our board, cells
-        #right beside ours
-        for cell in boardstate.items():
-            if cell[1][0] == agent._color:
-                #check other cells surrounding cell
+                safe = isSafe(boardstate, cell, agent)
+                if (safe >= 0):
+                    dangerCells.append(cell[0])
+
+        #check the dangercells list
+        if (len(dangerCells) != 0):
+            #reinforce the cells
+            for cellPos in dangerCells:
+                
+                #look for a safe position to insert a friendly cell, so as to
+                #increase trading potential between cells in the area
                 for dir in HexDir:
-                    newPos = cell[0].__add__(dir)
+                    newPos = cellPos.__add__(dir)
+                    if (boardstate.get(newPos) == None):
+                        if (isSafe(boardstate, newPos, agent) == 1):
+                            return SpawnAction(newPos)
 
-                    #if opponent cell exists
+                #assuming no safe spots were found to spawn additional cell
+                #attempt to see if we can spread to opp cell without losing value
+
+                for dir in HexDir:
+                    newPos = cellPos.__add__(dir)
+                    if (boardstate.get(newPos) != None):
+                        if (boardstate.get(newPos) != agent._color):
+                            if (isSafe(boardstate, newPos, agent) >= 1):
+                                SpreadAction(cellPos, dir)
+
+                #couldnt spread aggressively, couldnt spawn, try spread defensively
+                for dir in HexDir:
+                    newPos = cellPos.__add__(dir)
+                    if (boardstate.get(newPos) != None):
+                        if (boardstate.get(newPos) == agent._color):
+                            if (isSafe(boardstate, newPos, agent) >= 1):
+                                SpreadAction(cellPos, dir)
+        
+        #no cells in danger, we can play aggressively
+        #attempt to attack other opp cells that are free
+        for cell in boardstate.items():
+            if cell[1][0] == agent._color:
+                for dir in HexDir:
+                    newPos = cell[0]
+                    newPos = newPos.__add__(dir)
                     if (boardstate.get(newPos) != None):
                         if (boardstate.get(newPos)[1][0] != agent._color):
-                            #cell in danger zone
+                            if (isSafe(boardstate, newPos, agent) >= 1):
+                                return SpreadAction(cell[1][0], dir)
 
-        if (float(ownNumCells/oppNumCells) < 0.8):
-            #play aggressively            
-        else:
-            
-            #reinforce own position
-    return
+        #no cells in danger, not position to attack
+        #reinforce own position
+        for cell in boardstate.items():
+            if cell[1][0] == agent._color:
+                for dir in HexDir:
+                    newPos = cell[0]
+                    newPos = newPos.__add__(dir)
+                    if (boardstate.get(newPos) == None):
+                        if (isSafe(boardstate, newPos, agent) >= 0):
+                            return SpawnAction(newPos)
+                        
+        #assuming we gone through all protocols and there are no good moves to do
+        #aka we are solemnly screwed, perform random move?? (i hope it never comes to this)
+        return SpreadAction(cellPos, HexDir.DownRight)                    
+    
 
 #function will handle the logic of branching the leaf nodes
 #for MCTS
@@ -329,32 +376,84 @@ def createChildNodes(currNode: Node, agent: Agent):
 
         cellColor = cell[1][0]
         cellPower = cell[1][1]
-        #note to self: cellCoord to a HexPos
+        #note to self: cellCoord is a HexPos
         cellCoord = cell[0]
 
-        if cellColor == agent._color:
-
+        #if the cell is ours, we create child nodes by either
+        #spreading from any given cell, or spawining cells around
+        #existing cells
+        if (cellColor == agent._color):
+            
             for dir in HexDir:
-
-                #create a leaf node:
+                
+                #spread action
                 newBoardstate = currNode.boardstate.copy()
 
                 for power in range(0, cellPower):
                     
-                    #ensure that if we exit and re-enter the board, the coords update
-                    #correctly by not exceeding 7
                     cellCoord = cellCoord.__add__(dir)          
 
-                #if existing cell is in place, overwrite it and +1 to the existing power,
-                #otherwise create a new cell in the spot
-                if (newBoardstate.get(cellCoord) == None):
-                    newBoardstate[cellCoord] = (cellColor, 1)
-                else:
-                    newPower = newBoardstate.get(cellCoord)[1] + 1
-                    newBoardstate[cellCoord] = (cellColor, newPower)    
+                    #if existing cell is in place, overwrite it and +1 to the existing power,
+                    #otherwise create a new cell in the spot
+                    if (newBoardstate.get(cellCoord) == None):
+                        newBoardstate[cellCoord] = (cellColor, 1)
+                    else:
+                        newPower = newBoardstate.get(cellCoord)[1] + 1
+                        newBoardstate[cellCoord] = (cellColor, newPower)    
 
                 #deleting original expended cell
                 newBoardstate.pop(cellCoord)    
+                lastMove = SpreadAction(cellCoord, dir)
 
                 newNode = Node(1, newBoardstate, (currNode.depth+1), currNode)
+                newNode.lastmove = lastMove
                 currNode.addChildNode(newNode)
+
+            #spawn action, we spawn in the cells to areas around our existing cells
+            #cluster together to maintain easier trading
+            for dir in HexDir:
+
+                newBoardstate = currNode.boardstate.copy()
+
+                cellCoord = cell[0]
+                cellCoord = cellCoord.__add__(dir)
+
+                if (newBoardstate.get(cellCoord) == None):
+                    newBoardstate[cellCoord] = (cellColor, 1)
+
+                    newNode = Node(1, newBoardstate, (currNode.depth+1), currNode)
+                    newNode.lastmove = SpawnAction(cellCoord)
+                    currNode.addChildNode(newNode)
+                
+
+#function will check whether a cell is safe, by comparing number of opponent
+#cells around itself compared to number of friendly cells. Will >= 0 if safe
+#and <= -1 if not safe
+def isSafe(boardstate: dict, pos: HexPos, agent: Agent) -> int:
+
+    newPos = pos
+    closeOppCells = 0
+    closeOwnCells = 0
+
+    for dir in HexDir:
+        newPos.__add__(dir)
+        if (boardstate.get(newPos) != None):
+            if (boardstate.get(newPos)[1][0] == agent._color):
+                closeOwnCells += 1
+            else:
+                closeOppCells += 1
+
+    return closeOwnCells - closeOppCells          
+
+def findBestMove(root: Node):
+
+    bestChild = None
+    bestWinRate = -1
+    for child in root.childNodes:
+
+        currWinRate = float(child.totalGames/child.wonGames)
+        if (currWinRate > bestWinRate):
+            bestWinRate = currWinRate
+            bestChild = child
+
+    return bestChild.lastmove    
