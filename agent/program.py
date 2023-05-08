@@ -75,6 +75,7 @@ class Agent:
                 
                 #just add the cell into the list
                 self.boardstate[cell] = [color, 1]
+                print(self.boardstate.items())
                 pass
 
             case SpreadAction(cell, direction):
@@ -97,8 +98,9 @@ class Agent:
                         temp = self.boardstate[newCellPos]
                         temp[0] = color
                         temp[1] += 1
-                        self.boardstate[newCellPos] = temp    
-
+                        self.boardstate[newCellPos] = temp
+                self.boardstate.pop(cell)        
+                print(self.boardstate.items())
                 pass        
     
 #we shall use this program to set up data structures necessary for 
@@ -113,7 +115,7 @@ class Node:
         
         #which player owns this node, aka the player who will make the next move
         #for this purpose, we shall always own the root, then the next layer will be
-        #owned by the opp, then next layer by us etc.
+        #owned by the opp, then following layer by us etc.
         self.colour = colour
 
         #the list of child nodes that spawn from the current node
@@ -160,14 +162,15 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
     now = datetime.now()
     timeRemaining = agent.time/20
     limit = now + timedelta(seconds=timeRemaining)
-    
+
     #player colour to be adjusted
     rootNode = Node(agent._color, boardstate, 0)
     
     while (datetime.now() < limit):
         
-        currNode = rootNode
-        #perform MCTS
+        #reset to the top of the tree
+        currNode = rootNode 
+        
         #selecting a leaf node, if not at leaf node, traverse down
         while (len(currNode.childNodes) != 0):
                 
@@ -194,6 +197,7 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
                 
 
         #now at leaf node, we simulate if no simulation done yet
+        #currNode.depth !=0 is to ensure we do not simulate the root node
         if (currNode.totalGames == 0 and currNode.depth != 0):
             
             #if its an even number layer node, our node, 
@@ -206,13 +210,18 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
             if (score == 1):
                 currNode.backPropagate(True)
             else:
-                currNode.backPropagate(False)    
+                currNode.backPropagate(False)
 
-        #simulated, but no children
+            continue        
+
+        #simulated or is the root, but no children
         if (len(currNode.childNodes) == 0):
+            #check whether we have reached an end state, if we have we stop further simulations
+            #aka do not create child nodes
+            if (ongoing(currNode.boardstate) == True):
 
-            #create the child nodes
-            createChildNodes(currNode, agent, currNode.colour)
+                #create the child nodes
+                createChildNodes(currNode, agent, currNode.colour)
 
     #after time has run out, return the best move
     print("returning best move")
@@ -241,6 +250,10 @@ def simulateNode(currNode: Node, agent: Agent, startPlayer: PlayerColor) -> int:
     #if it is ourNode, we start by simulating our colour
     #else we simulate starting using opp color
     while (moves < 30):
+        
+        #if we have reached an end state
+        if (ongoing(simulatedBoardstate) == False):
+            break
         
         #add heurisitc for moving here
         if ((moves % 2) == 0):
@@ -287,7 +300,7 @@ def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor):
             if cell[1][0] == currPlayer:
 
                 safe = isSafe(boardstate, cell[0], currPlayer)
-                if (safe >= 0):
+                if (safe <= 0):
                     dangerCells.append(cell[0])
 
         #check the dangercells list
@@ -300,7 +313,7 @@ def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor):
                 for dir in HexDir:
                     newPos = cellPos.__add__(dir)
                     if (boardstate.get(newPos) == None):
-                        if (isSafe(boardstate, newPos, currPlayer) == 1):
+                        if (isSafe(boardstate, newPos, currPlayer) >= 1):
                             return SpawnAction(newPos)
 
                 #assuming no safe spots were found to spawn additional cell
@@ -388,7 +401,7 @@ def createChildNodes(currNode: Node, agent: Agent, currPlayer: PlayerColor):
                 newBoardstate.pop(cellCoord)    
                 lastMove = SpreadAction(cellCoord, dir)
 
-                newNode = Node(currPlayer, newBoardstate, (currNode.depth+1), currNode)
+                newNode = Node(currPlayer.opponent, newBoardstate, (currNode.depth+1), currNode)
                 newNode.lastmove = lastMove
                 currNode.addChildNode(newNode)
 
@@ -398,14 +411,14 @@ def createChildNodes(currNode: Node, agent: Agent, currPlayer: PlayerColor):
 
                 newBoardstate = currNode.boardstate.copy()
 
-                cellCoord = cell[0]
-                cellCoord = cellCoord.__add__(dir)
+                spawnCoord = cell[0]
+                spawnCoord = spawnCoord.__add__(dir)
 
-                if (newBoardstate.get(cellCoord) == None):
-                    newBoardstate[cellCoord] = (cellColor, 1)
+                if (newBoardstate.get(spawnCoord) == None):
+                    newBoardstate[spawnCoord] = (cellColor, 1)
 
-                    newNode = Node(currPlayer, newBoardstate, (currNode.depth+1), currNode)
-                    newNode.lastmove = SpawnAction(cellCoord)
+                    newNode = Node(currPlayer.opponent, newBoardstate, (currNode.depth+1), currNode)
+                    newNode.lastmove = SpawnAction(spawnCoord)
                     currNode.addChildNode(newNode)
                 
 
@@ -435,9 +448,26 @@ def findBestMove(root: Node) -> Action:
     for child in root.childNodes:
 
         currWinRate = float(child.wonGames/child.totalGames)
+
         if (currWinRate > bestWinRate):
             bestWinRate = currWinRate
             bestChild = child
 
     print(bestChild.lastmove)
     return bestChild.lastmove    
+
+def ongoing(boardstate: dict) -> bool:
+    
+    hasBlue = False
+    hasRed = False
+
+    for value in list(boardstate.values()):
+        if value[0] == PlayerColor.RED:
+            hasRed = True
+        if value[0] == PlayerColor.BLUE:
+            hasBlue = True
+
+        if (hasBlue and hasRed):
+            return True
+
+    return False                
