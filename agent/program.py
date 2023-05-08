@@ -163,7 +163,8 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
     timeRemaining = agent.time/20
     limit = now + timedelta(seconds=timeRemaining)
 
-    #player colour to be adjusted
+    #root now shall be our given boardstate, and from there we simulate
+    #possible next moves
     rootNode = Node(agent._color, boardstate, 0)
     
     while (datetime.now() < limit):
@@ -171,30 +172,8 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
         #reset to the top of the tree
         currNode = rootNode 
         
-        #selecting a leaf node, if not at leaf node, traverse down
-        while (len(currNode.childNodes) != 0):
-                
-                #using UCB1 to select the best nodes amongst the child nodes
-                bestChild = None
-                bestVal = -1
-
-                for child in currNode.childNodes:
-
-                    currVal = calcUCB1(child)
-
-                    #if node has never been simulated, simulate it immediately
-                    #and forgo selection of best node
-                    if (currVal == -1):
-                        bestChild = child
-                        break
-                    
-                    #else we compare to find best node to expand
-                    elif currVal > bestVal:
-                        bestVal = currVal
-                        bestChild = child
-
-                currNode = bestChild
-                
+        
+        currNode = traverseToLeaf(currNode)
 
         #now at leaf node, we simulate if no simulation done yet
         #currNode.depth !=0 is to ensure we do not simulate the root node
@@ -238,6 +217,31 @@ def calcUCB1(childNode: Node) -> float:
     y = 2 * sqrt(log(childNode.parentNode.totalGames)/(childNode.totalGames))
 
     return (x + y)
+
+#traverse to a leaf node using the UCB1 Value
+def traverseToLeaf(rootNode: Node) -> Node:
+
+    bestChild = rootNode
+    bestValue = -1
+
+    currNode = rootNode
+    #while its not a leaf node, traverse using UCB1 Value
+    #if the child has not been simulated and has no UCB1, then select that
+    #child and return immediately
+    while (len(currNode.childNodes) != 0):
+
+        for child in currNode.childNodes:
+            currVal = calcUCB1(child)
+            if (currVal == -1):
+                return child
+            
+            else:
+                if (currVal > bestValue):
+                    bestValue = currVal
+                    bestChild = child
+
+    return bestChild            
+
 
 #function will be used to simulate the Nodes all the way to the goal state
 #in this particularly case we limit it to a max of 30 moves for time
