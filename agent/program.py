@@ -495,6 +495,8 @@ def findBestMove(root: Node) -> Action:
                 break
         
         #else use UCB1 method
+        if (child.totalGames == 0):
+            continue
         currWinRate = float(child.wonGames/child.totalGames)
 
         if (currWinRate > bestWinRate):
