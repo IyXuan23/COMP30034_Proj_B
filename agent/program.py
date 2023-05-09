@@ -177,7 +177,7 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
     #inspired by chess players, who spend more time thinking in the initial stages
     #of the game as there are more moves available
     now = datetime.now()
-    timeRemaining = agent.time/20
+    timeRemaining = agent.time/50
     limit = now + timedelta(seconds=timeRemaining)
 
     #root now shall be our given boardstate, and from there we simulate
