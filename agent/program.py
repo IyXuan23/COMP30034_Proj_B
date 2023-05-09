@@ -159,6 +159,8 @@ class Node:
             currNode = currNode.parentNode
 
     #new propagate we will use, produces better results than previous
+    #this function calculates the winlost ratio and applies to all nodes
+    #we do not worry about which node belongs to which player
     def backPropagate2(self, won: bool, agent: Agent):
 
         currNode = self
@@ -172,15 +174,15 @@ class Node:
 #from said search
 def MCTS(boardstate: dict, agent: Agent) -> list:
 
-    #for this, we will allocate 5% of the remaining time for the algorithm to run??
+    #for this, we will allocate 2% of the remaining time for the algorithm to run
     #may be changed
     #inspired by chess players, who spend more time thinking in the initial stages
     #of the game as there are more moves available
     now = datetime.now()
-    timeRemaining = agent.time/50
+    timeRemaining = agent.time/100
     limit = now + timedelta(seconds=timeRemaining)
 
-    #root now shall be our given boardstate, and from there we simulate
+    #root node shall be our given boardstate, and from there we simulate
     #possible next moves
     rootNode = Node(agent._color, boardstate, 0)
     
@@ -202,7 +204,7 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
 
                     #if node has never been simulated, simulate it immediately
                     #and forgo selection of best node
-                    if (currVal == -1):
+                    if (currVal == -343):
                         bestChild = child
                         break
                     
@@ -248,7 +250,9 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
 def calcUCB1(childNode: Node) -> float:
 
     if (childNode.totalGames == 0):
-        return -1
+        #return value beyond the possible score, to ensure that
+        #we do not mix it up with the actual possible UCB1 value
+        return -343
 
     x = float(childNode.wonGames/childNode.totalGames)
     #constant 2 here may change depending on exploration etc.
