@@ -156,7 +156,17 @@ class Node:
                 if (currNode.colour == agent._color):
                     currNode.wonGames += 1        
 
-            currNode = currNode.parentNode        
+            currNode = currNode.parentNode
+
+    #new propagate we will use, produces better results than previous
+    def backPropagate2(self, won: bool, agent: Agent):
+
+        currNode = self
+        while (currNode!= None):
+            currNode.totalGames += 1
+            if (won== True):
+                currNode.wonGames += 1
+            currNode = currNode.parentNode                        
 
 #function for performing Monte Carlo Tree Search, will return the optimal move derived
 #from said search
@@ -215,9 +225,9 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
                 score = simulateNode(currNode, agent, agent._color.opponent)
 
             if (score == 1):
-                currNode.backPropagate(True, agent)
+                currNode.backPropagate2(True, agent)
             else:
-                currNode.backPropagate(False, agent)
+                currNode.backPropagate2(False, agent)
 
             continue
 
