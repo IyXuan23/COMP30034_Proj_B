@@ -161,14 +161,15 @@ class Node:
     #new propagate we will use, produces better results than previous
     #this function calculates the winlost ratio and applies to all nodes
     #we do not worry about which node belongs to which player
-    def backPropagate2(self, won: bool, agent: Agent):
+    #also changed the style instead of win or loss, to total cell number
+    def backPropagate2(self, cellNum: list, agent: Agent):
 
         currNode = self
         while (currNode!= None):
-            currNode.totalGames += 1
-            if (won== True):
-                currNode.wonGames += 1
-            currNode = currNode.parentNode                        
+            currNode.totalGames += cellNum[1]
+            currNode.wonGames += cellNum[0]
+
+            currNode = currNode.parentNode                  
 
 #function for performing Monte Carlo Tree Search, will return the optimal move derived
 #from said search
@@ -222,15 +223,15 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
             #if its an even number layer node, our node, 
             #else if odd number layer node, opp node
             if (currNode.depth % 2 == 0):
-                score = simulateNode(currNode, agent, agent._color)
+                cellNum = simulateNode(currNode, agent, agent._color)
             else:
-                score = simulateNode(currNode, agent, agent._color.opponent)
+                cellNum = simulateNode(currNode, agent, agent._color.opponent)
 
-            if (score == 1):
-                currNode.backPropagate2(True, agent)
-            else:
-                currNode.backPropagate2(False, agent)
-
+            #if (score == 1):
+                #currNode.backPropagate2(True, agent)
+            #else:
+                #currNode.backPropagate2(False, agent)
+            currNode.backPropagate2(cellNum, agent)
             continue
 
         #simulated or is the root, but no children
@@ -301,10 +302,11 @@ def simulateNode(currNode: Node, agent: Agent, startPlayer: PlayerColor) -> int:
             numOppCells += cell[1]   
 
     #should return 1 if won, 0 if lost
-        if numOwnCells > numOppCells:
-            return 1
-        else:
-            return 0
+        #if numOwnCells > numOppCells:
+            #return 1
+        #else:
+            #return 0
+    return [numOwnCells, (numOwnCells + numOppCells)]        
 
 #function will be the heuristic used to determine moves
 #for simulation of the node during MCTS
