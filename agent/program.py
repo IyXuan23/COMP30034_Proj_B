@@ -265,9 +265,11 @@ def simulateNode(currNode: Node, agent: Agent, startPlayer: PlayerColor) -> int:
         
         #heuristic for simulation, taking turns for both us and opp to make moves
         if ((moves % 2) == 0):
-            moveHeuristic(simulatedBoardstate, agent, startPlayer)
+            move = moveHeuristic(simulatedBoardstate, agent, startPlayer)
+            updateSimulationBoard(simulatedBoardstate, move, startPlayer)
         else:
-            moveHeuristic(simulatedBoardstate, agent, startPlayer.opponent)
+            move = moveHeuristic(simulatedBoardstate, agent, startPlayer.opponent)
+            updateSimulationBoard(simulatedBoardstate, move, startPlayer.opponent)
 
         moves+= 1
 
@@ -292,7 +294,7 @@ def simulateNode(currNode: Node, agent: Agent, startPlayer: PlayerColor) -> int:
 
 #function will be the heuristic used to determine moves
 #for simulation of the node during MCTS
-def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor):
+def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor) -> Action:
 
     dangerCells = []
 
@@ -316,8 +318,9 @@ def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor):
                 if (boardstate.get(newPos) != None):
                     if (boardstate.get(newPos) != currPlayer):
                         if (isSafe(boardstate, newPos, currPlayer) >= 1):
-                            SpreadAction(cellPos, dir)
 
+                            return SpreadAction(cellPos, dir)
+                        
             #assuming we could not attack to improve our position               
             #look for a safe position to insert a friendly cell, so as to
             #increase trading potential between cells in the area
@@ -327,15 +330,13 @@ def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor):
                     if (isSafe(boardstate, newPos, currPlayer) >= 0):
                         return SpawnAction(newPos)
 
-
-
             #couldnt spread aggressively, couldnt spawn, try spread defensively
             for dir in HexDir:
                 newPos = cellPos.__add__(dir)
                 if (boardstate.get(newPos) != None):
                     if (boardstate.get(newPos) == currPlayer):
                         if (isSafe(boardstate, newPos, currPlayer) >= 1):
-                            SpreadAction(cellPos, dir)
+                            return SpreadAction(cellPos, dir)
         
     #no cells in danger, we can play aggressively
     #attempt to attack other opp cells that are free
@@ -347,7 +348,7 @@ def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor):
                 if (boardstate.get(newPos) != None):
                     if (boardstate.get(newPos)[0] != currPlayer):
                         if (isSafe(boardstate, newPos, currPlayer) >= 1):
-                            return SpreadAction(cell[1][0], dir)
+                            return SpreadAction(cell[0], dir)
 
     #no cells in danger, not position to attack
     #reinforce own position
@@ -366,6 +367,23 @@ def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor):
         if cell[1][0] == currPlayer:
             return SpreadAction(cell[0], HexDir.DownRight)                    
     
+def updateSimulationBoard(simulatedBoard: dict, move: Action, currPlayer: PlayerColor):
+
+    if (type(move) == SpreadAction):
+        
+        currPower = simulatedBoard[move.cell][1]
+        newCellPos = move.cell
+        for i in range(0, currPower):
+            newCellPos = newCellPos.__add__(move.direction)
+            if simulatedBoard.get(newCellPos) == None:
+                simulatedBoard[newCellPos] = [currPlayer, 1]
+            else:
+                oldPower = simulatedBoard[newCellPos][1]
+                simulatedBoard[newCellPos] = [currPlayer, oldPower+1]    
+
+    if (type(move) == SpawnAction):
+        simulatedBoard[move.cell] = [currPlayer, 1]  
+
 
 #function will handle the logic of branching the leaf nodes
 #for MCTS
@@ -451,7 +469,6 @@ def findBestMove(root: Node) -> Action:
 
     bestChild = None
     bestWinRate = -1
-    print(len(root.childNodes))
     for child in root.childNodes:
         
         #if the move outright wins the game, take it
