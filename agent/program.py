@@ -20,6 +20,7 @@ class Agent:
 
         #Note to self: red starts first always
         self._color = color
+        self.oppColour = color.opponent
 
         self.time = referee["time_remaining"]
 
@@ -92,13 +93,14 @@ class Agent:
                     
                     #if new Pos has no cell, add one
                     if self.boardstate[newCellPos] == None:
-
                         self.boardstate[newCellPos] = [color, 1]
+
+                    #cell alr exists there
                     else:
-                        temp = self.boardstate[newCellPos]
-                        temp[0] = color
-                        temp[1] += 1
-                        self.boardstate[newCellPos] = temp
+                        oldPower = self.boardstate[newCellPos][1]
+                        self.boardstate[newCellPos] = [color, oldPower+1]
+
+                #remove old (spreaded) cell
                 self.boardstate.pop(cell)        
                 print(self.boardstate.items())
                 pass        
@@ -139,15 +141,21 @@ class Node:
         self.childNodes.append(childNode)
 
     #function to back propagate scores after simulation
-    def backPropagate(self, won: bool):
+    def backPropagate(self, won: bool, agent: Agent):
 
         currNode = self
 
         while (currNode != None):
-
             currNode.totalGames += 1
+
+            #seems counterintuitive, but the node that holds the UCB1 Score
+            #is the node with the opposing colour
             if (won == True):
-                currNode.wonGames += 1
+                if (currNode.colour != agent._color):
+                    currNode.wonGames += 1
+            elif (won == False):
+                if (currNode.colour == agent._color):
+                    currNode.wonGames += 1        
 
             currNode = currNode.parentNode        
 
@@ -173,7 +181,29 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
         currNode = rootNode 
         
         
-        currNode = traverseToLeaf(currNode)
+        #selecting a leaf node, if not at leaf node, traverse down
+        while (len(currNode.childNodes) != 0):
+                
+                #using UCB1 to select the best nodes amongst the child nodes
+                bestChild = None
+                bestVal = -1
+
+                for child in currNode.childNodes:
+
+                    currVal = calcUCB1(child)
+
+                    #if node has never been simulated, simulate it immediately
+                    #and forgo selection of best node
+                    if (currVal == -1):
+                        bestChild = child
+                        break
+                    
+                    #else we compare to find best node to expand
+                    elif currVal > bestVal:
+                        bestVal = currVal
+                        bestChild = child
+
+                currNode = bestChild
 
         #now at leaf node, we simulate if no simulation done yet
         #currNode.depth !=0 is to ensure we do not simulate the root node
@@ -187,11 +217,11 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
                 score = simulateNode(currNode, agent, agent._color.opponent)
 
             if (score == 1):
-                currNode.backPropagate(True)
+                currNode.backPropagate(True, agent)
             else:
-                currNode.backPropagate(False)
+                currNode.backPropagate(False, agent)
 
-            continue        
+            continue
 
         #simulated or is the root, but no children
         if (len(currNode.childNodes) == 0):
@@ -203,6 +233,7 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
                 createChildNodes(currNode, agent, currNode.colour)
 
     #after time has run out, return the best move
+
     print("returning best move")
     return findBestMove(rootNode)
 
@@ -216,31 +247,7 @@ def calcUCB1(childNode: Node) -> float:
     #constant 2 here may change depending on exploration etc.
     y = 2 * sqrt(log(childNode.parentNode.totalGames)/(childNode.totalGames))
 
-    return (x + y)
-
-#traverse to a leaf node using the UCB1 Value
-def traverseToLeaf(rootNode: Node) -> Node:
-
-    bestChild = rootNode
-    bestValue = -1
-
-    currNode = rootNode
-    #while its not a leaf node, traverse using UCB1 Value
-    #if the child has not been simulated and has no UCB1, then select that
-    #child and return immediately
-    while (len(currNode.childNodes) != 0):
-
-        for child in currNode.childNodes:
-            currVal = calcUCB1(child)
-            if (currVal == -1):
-                return child
-            
-            else:
-                if (currVal > bestValue):
-                    bestValue = currVal
-                    bestChild = child
-
-    return bestChild            
+    return (x + y)          
 
 
 #function will be used to simulate the Nodes all the way to the goal state
@@ -445,12 +452,23 @@ def isSafe(boardstate: dict, pos: HexPos, currPlayer: PlayerColor) -> int:
 
     return closeOwnCells - closeOppCells          
 
+#return the best move produced by the MCTS
+#firstly we check if there any obvious moves, where we win outright
+#else we use the UCB1 value to look for best moves
 def findBestMove(root: Node) -> Action:
 
     bestChild = None
     bestWinRate = -1
     for child in root.childNodes:
-
+        
+        #if the move outright wins the game, take it
+        if (ongoing(child.boardstate) == False):
+            for value in child.boardstate.values():
+                if value[0] == root.colour:
+                    return child.lastmove
+                break
+        
+        #else use UCB1 method
         currWinRate = float(child.wonGames/child.totalGames)
 
         if (currWinRate > bestWinRate):
@@ -460,6 +478,8 @@ def findBestMove(root: Node) -> Action:
     print(bestChild.lastmove)
     return bestChild.lastmove    
 
+#checks whether the game is still ongoing, by checking
+#whether there are colours of both opponents in the dict
 def ongoing(boardstate: dict) -> bool:
     
     hasBlue = False
