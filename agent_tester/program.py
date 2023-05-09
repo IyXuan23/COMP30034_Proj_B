@@ -23,6 +23,8 @@ class Agent:
         self.oppColour = color.opponent
 
         self.time = referee["time_remaining"]
+        
+        self.move_num = 0
 
         #we will set up a list with all the cells
         #following project part a, the format for the list
@@ -40,22 +42,12 @@ class Agent:
         Return the next action to take.
         """
 
-        #first move starting 1st (as red)
-        if len(self.boardstate) == 0:
-            return SpawnAction(HexPos(3, 3))
-        
-        #first move starting 2nd (as blue)
-        if (len(self.boardstate) == 1):
-            pos = list(self.boardstate.keys())[0]
+        if self.move_num == 0:
+            self.move_num += 1
+            return SpawnAction(HexPos(0,2))
 
-            pos = pos.__add__(HexDir.DownRight)
-            pos = pos.__add__(HexDir.DownRight)
-            return SpawnAction(pos)
-
-        else:
-            print("MCTS")
-            return MCTS(self.boardstate, self)
-
+        if self.move_num == 1:
+            return SpreadAction(HexPos(0,2), HexDir.UpLeft)
         #match self._color:
         #    case PlayerColor.RED:
         #        return SpawnAction(HexPos(3, 3))
