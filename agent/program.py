@@ -180,7 +180,6 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
         #reset to the top of the tree
         currNode = rootNode 
         
-        
         #selecting a leaf node, if not at leaf node, traverse down
         while (len(currNode.childNodes) != 0):
                 
@@ -233,7 +232,6 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
                 createChildNodes(currNode, agent, currNode.colour)
 
     #after time has run out, return the best move
-
     print("returning best move")
     return findBestMove(rootNode)
 
@@ -266,7 +264,7 @@ def simulateNode(currNode: Node, agent: Agent, startPlayer: PlayerColor) -> int:
         if (ongoing(simulatedBoardstate) == False):
             break
         
-        #add heurisitc for moving here
+        #heuristic for simulation, taking turns for both us and opp to make moves
         if ((moves % 2) == 0):
             moveHeuristic(simulatedBoardstate, agent, startPlayer)
         else:
@@ -297,82 +295,77 @@ def simulateNode(currNode: Node, agent: Agent, startPlayer: PlayerColor) -> int:
 #for simulation of the node during MCTS
 def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor):
 
-    #due to the nature of the infinite board, the first move
-    #of spawning can go anywhere, so 
-    if len(boardstate) == 0:
-        return SpawnAction(HexPos(3, 3))
-    
-    else:
+    dangerCells = []
 
-        dangerCells = []
+    for cell in boardstate.items():
 
-        for cell in boardstate.items():
+        if cell[1][0] == currPlayer:
 
-            if cell[1][0] == currPlayer:
+            safe = isSafe(boardstate, cell[0], currPlayer)
+            if (safe < 0):
+                dangerCells.append(cell[0])
 
-                safe = isSafe(boardstate, cell[0], currPlayer)
-                if (safe <= 0):
-                    dangerCells.append(cell[0])
+    #check the dangercells list
+    if (len(dangerCells) != 0):
+         
+        #try to get our cells out of danger
+        for cellPos in dangerCells:
 
-        #check the dangercells list
-        if (len(dangerCells) != 0):
-            #reinforce the cells
-            for cellPos in dangerCells:
-                
-                #look for a safe position to insert a friendly cell, so as to
-                #increase trading potential between cells in the area
-                for dir in HexDir:
-                    newPos = cellPos.__add__(dir)
-                    if (boardstate.get(newPos) == None):
+            #attempt to see if we can spread to opp cell without losing value
+            for dir in HexDir:
+                newPos = cellPos.__add__(dir)
+                if (boardstate.get(newPos) != None):
+                    if (boardstate.get(newPos) != currPlayer):
                         if (isSafe(boardstate, newPos, currPlayer) >= 1):
-                            return SpawnAction(newPos)
+                            SpreadAction(cellPos, dir)
 
-                #assuming no safe spots were found to spawn additional cell
-                #attempt to see if we can spread to opp cell without losing value
+            #assuming we could not attack to improve our position               
+            #look for a safe position to insert a friendly cell, so as to
+            #increase trading potential between cells in the area
+            for dir in HexDir:
+                newPos = cellPos.__add__(dir)
+                if (boardstate.get(newPos) == None):
+                    if (isSafe(boardstate, newPos, currPlayer) >= 0):
+                        return SpawnAction(newPos)
 
-                for dir in HexDir:
-                    newPos = cellPos.__add__(dir)
-                    if (boardstate.get(newPos) != None):
-                        if (boardstate.get(newPos) != currPlayer):
-                            if (isSafe(boardstate, newPos, currPlayer) >= 1):
-                                SpreadAction(cellPos, dir)
 
-                #couldnt spread aggressively, couldnt spawn, try spread defensively
-                for dir in HexDir:
-                    newPos = cellPos.__add__(dir)
-                    if (boardstate.get(newPos) != None):
-                        if (boardstate.get(newPos) == currPlayer):
-                            if (isSafe(boardstate, newPos, currPlayer) >= 1):
-                                SpreadAction(cellPos, dir)
+
+            #couldnt spread aggressively, couldnt spawn, try spread defensively
+            for dir in HexDir:
+                newPos = cellPos.__add__(dir)
+                if (boardstate.get(newPos) != None):
+                    if (boardstate.get(newPos) == currPlayer):
+                        if (isSafe(boardstate, newPos, currPlayer) >= 1):
+                            SpreadAction(cellPos, dir)
         
-        #no cells in danger, we can play aggressively
-        #attempt to attack other opp cells that are free
-        for cell in boardstate.items():
-            if cell[1][0] == currPlayer:
-                for dir in HexDir:
-                    newPos = cell[0]
-                    newPos = newPos.__add__(dir)
-                    if (boardstate.get(newPos) != None):
-                        if (boardstate.get(newPos)[0] != currPlayer):
-                            if (isSafe(boardstate, newPos, currPlayer) >= 1):
-                                return SpreadAction(cell[1][0], dir)
+    #no cells in danger, we can play aggressively
+    #attempt to attack other opp cells that are free
+    for cell in boardstate.items():
+        if cell[1][0] == currPlayer:
+            for dir in HexDir:
+                newPos = cell[0]
+                newPos = newPos.__add__(dir)
+                if (boardstate.get(newPos) != None):
+                    if (boardstate.get(newPos)[0] != currPlayer):
+                        if (isSafe(boardstate, newPos, currPlayer) >= 1):
+                            return SpreadAction(cell[1][0], dir)
 
-        #no cells in danger, not position to attack
-        #reinforce own position
-        for cell in boardstate.items():
-            if cell[1][0] == currPlayer:
-                for dir in HexDir:
-                    newPos = cell[0]
-                    newPos = newPos.__add__(dir)
-                    if (boardstate.get(newPos) == None):
-                        if (isSafe(boardstate, newPos, currPlayer) >= 0):
-                            return SpawnAction(newPos)
+    #no cells in danger, not position to attack
+    #reinforce own position
+    for cell in boardstate.items():
+        if cell[1][0] == currPlayer:
+            for dir in HexDir:
+                newPos = cell[0]
+                newPos = newPos.__add__(dir)
+                if (boardstate.get(newPos) == None):
+                    if (isSafe(boardstate, newPos, currPlayer) >= 0):
+                        return SpawnAction(newPos)
                         
-        #assuming we gone through all protocols and there are no good moves to do
-        #aka we are solemnly screwed, perform random move?? (i hope it never comes to this)
-        for cell in boardstate.items():
-            if cell[1][0] == currPlayer:
-                return SpreadAction(cell[0], HexDir.DownRight)                    
+    #assuming we gone through all protocols and there are no good moves to do
+    #aka we are solemnly screwed, perform random move?? (i hope it never comes to this)
+    for cell in boardstate.items():
+        if cell[1][0] == currPlayer:
+            return SpreadAction(cell[0], HexDir.DownRight)                    
     
 
 #function will handle the logic of branching the leaf nodes
