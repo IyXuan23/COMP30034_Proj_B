@@ -108,7 +108,7 @@ class Agent:
 #we shall use this program to set up data structures necessary for 
 #an implementation of the Monte Carlo Tree Search (MCTS)
 
-from agent.program import Agent
+from .program import Agent
 
 #structure for a singular node in the MCTS tree
 class Node:
