@@ -430,6 +430,10 @@ def updateSimulationBoard(simulatedBoard: dict, move: Action, currPlayer: Player
 #for MCTS
 def createChildNodes(currNode: Node, agent: Agent, currPlayer: PlayerColor):
 
+    totalCellPower = 0
+    for cell in currNode.boardstate.items():
+        totalCellPower += cell[1][1]
+
     for cell in currNode.boardstate.items():
 
         cellColor = cell[1][0]
@@ -470,6 +474,9 @@ def createChildNodes(currNode: Node, agent: Agent, currPlayer: PlayerColor):
             #spawn action, we spawn in the cells to areas around our existing cells
             #cluster together to maintain easier trading
             for dir in HexDir:
+
+                if totalCellPower >= 49:
+                    break
 
                 newBoardstate = currNode.boardstate.copy()
 
