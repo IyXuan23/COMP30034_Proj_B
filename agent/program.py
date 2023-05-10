@@ -312,6 +312,9 @@ def simulateNode(currNode: Node, agent: Agent, startPlayer: PlayerColor) -> int:
 #for simulation of the node during MCTS
 def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor) -> Action:
 
+
+    #first we shall check defensively, to see if we need to protect our own cells
+    #if not then we can make more aggressive moves
     dangerCells = []
 
     for cell in boardstate.items():
@@ -333,8 +336,8 @@ def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor) -> Ac
                 newPos = cellPos.__add__(dir)
                 if (boardstate.get(newPos) != None):
                     if (boardstate.get(newPos) != currPlayer):
-                        if (isSafe(boardstate, newPos, currPlayer) >= 1):
 
+                        if (isSafe(boardstate, newPos, currPlayer) >= 1):
                             return SpreadAction(cellPos, dir)
                         
             #assuming we could not attack to improve our position               
@@ -351,8 +354,9 @@ def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor) -> Ac
                 newPos = cellPos.__add__(dir)
                 if (boardstate.get(newPos) != None):
                     if (boardstate.get(newPos) == currPlayer):
+                            
                         if (isSafe(boardstate, newPos, currPlayer) >= 1):
-                            return SpreadAction(cellPos, dir)
+                            return SpreadAction(cellPos, dir)    
         
     #no cells in danger, we can play aggressively
     #attempt to attack other opp cells that are free
@@ -360,11 +364,33 @@ def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor) -> Ac
         if cell[1][0] == currPlayer:
             for dir in HexDir:
                 newPos = cell[0]
-                newPos = newPos.__add__(dir)
-                if (boardstate.get(newPos) != None):
-                    if (boardstate.get(newPos)[0] != currPlayer):
-                        if (isSafe(boardstate, newPos, currPlayer) >= 1):
-                            return SpreadAction(cell[0], dir)
+                for i in range(0,cell[1][1]):
+                    newPos = newPos.__add__(dir)
+                    if (boardstate.get(newPos) != None):
+                        if (boardstate.get(newPos)[0] != currPlayer):
+                            if (isSafe(boardstate, newPos, currPlayer) >= 1):
+                                return SpreadAction(cell[0], dir)
+
+    #attempt to accumulate our cells into a singular cell
+    #to allow our cells more range when spreading
+    #firstly, find cell with the highest power, and accumulate more power to it
+    biggestCellPos = None
+    biggestPow = 0
+    for cell in boardstate.items():
+        if cell[1][0] == currPlayer:
+            if (cell[1][1] > biggestPow and (cell[1][1] != 6)):
+                biggestCellPos = cell[0]
+                biggestPow = cell[1][1]
+
+    #check for a nearby cell that we can stack onto it
+    for dir in HexDir:
+        smallerCellPos = biggestCellPos.__add__(dir)
+        if boardstate.get(smallerCellPos) != None:
+            if (boardstate[smallerCellPos][0] == currPlayer 
+                and (biggestPow + boardstate[smallerCellPos][1] < 7)):
+                
+                return SpreadAction(smallerCellPos, dir.__neg__())
+            
 
     #no cells in danger, not position to attack
     #reinforce own position
