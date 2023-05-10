@@ -342,11 +342,6 @@ def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor) -> Ac
     #no cells in danger, we can play aggressively
     #attempt to attack other opp cells that are free
 
-    #sort the board so that we attempt to spread the higher power cells first
-    #often producing better results
-    sortedBoard = list(boardstate.items())
-    sortedBoard.sort(key=lambda x: x[1][1], reverse=True)
-
     for cell in boardstate.items():
         if cell[1][0] == currPlayer:
             for dir in HexDir:
