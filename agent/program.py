@@ -22,8 +22,6 @@ class Agent:
         self._color = color
         self.oppColour = color.opponent
 
-        self.time = referee["time_remaining"]
-
         #we will set up a list with all the cells
         #following project part a, the format for the list
         #will be [coords] : [colour, power] of the cell
@@ -180,8 +178,7 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
     #inspired by chess players, who spend more time thinking in the initial stages
     #of the game as there are more moves available
     now = datetime.now()
-    timeRemaining = agent.time/50
-    limit = now + timedelta(seconds=timeRemaining)
+    limit = now + timedelta(seconds=1)
 
     #root node shall be our given boardstate, and from there we simulate
     #possible next moves
