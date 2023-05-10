@@ -111,8 +111,8 @@ class Node:
         self.childNodes = []
         self.parentNode = parentNode
 
-        self.totalGames = 0
-        self.wonGames = 0
+        self.totalCells = 0
+        self.ourCells = 0
 
         self.boardstate = boardstate
 
@@ -133,29 +133,30 @@ class Node:
         currNode = self
 
         while (currNode != None):
-            currNode.totalGames += 1
+            currNode.totalCells += 1
 
             #seems counterintuitive, but the node that holds the UCB1 Score
             #is the node with the opposing colour
             if (won == True):
                 if (currNode.colour != agent._color):
-                    currNode.wonGames += 1
+                    currNode.ourCells += 1
             elif (won == False):
                 if (currNode.colour == agent._color):
-                    currNode.wonGames += 1        
+                    currNode.ourCells += 1        
 
             currNode = currNode.parentNode
 
     #new propagate we will use, produces better results than previous
     #this function calculates the winlost ratio and applies to all nodes
     #we do not worry about which node belongs to which player
-    #also changed the style instead of win or loss, to total cell number
+    #also changed the style instead of win or loss, to total cell number, better
+    #reflecting the advantages we hold
     def backPropagate2(self, cellNum: list, agent: Agent):
 
         currNode = self
         while (currNode!= None):
-            currNode.totalGames += cellNum[1]
-            currNode.wonGames += cellNum[0]
+            currNode.totalCells += cellNum[1]
+            currNode.ourCells += cellNum[0]
 
             currNode = currNode.parentNode                  
 
@@ -163,10 +164,8 @@ class Node:
 #from said search
 def MCTS(boardstate: dict, agent: Agent) -> list:
 
-    #for this, we will allocate 2% of the remaining time for the algorithm to run
-    #may be changed
-    #inspired by chess players, who spend more time thinking in the initial stages
-    #of the game as there are more moves available
+    #to allow maximum time for the maximum number of moves, we allocate each move 1 second
+    #initial we allowed for longer time periods but realised our program ran out of time often
     now = datetime.now()
     limit = now + timedelta(seconds=1)
 
@@ -192,7 +191,7 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
 
                     #if node has never been simulated, simulate it immediately
                     #and forgo selection of best node
-                    if (currVal == -343):
+                    if (currVal == -1):
                         bestChild = child
                         break
                     
@@ -205,7 +204,7 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
 
         #now at leaf node, we simulate if no simulation done yet
         #currNode.depth !=0 is to ensure we do not simulate the root node
-        if (currNode.totalGames == 0 and currNode.depth != 0):
+        if (currNode.totalCells == 0 and currNode.depth != 0):
             
             #if its an even number layer node, our node, 
             #else if odd number layer node, opp node
@@ -214,15 +213,12 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
             else:
                 cellNum = simulateNode(currNode, agent, agent._color.opponent)
 
-            #if (score == 1):
-                #currNode.backPropagate2(True, agent)
-            #else:
-                #currNode.backPropagate2(False, agent)
             currNode.backPropagate2(cellNum, agent)
             continue
 
-        #simulated or is the root, but no children
+        #we are at simulated node/root, but no children yet
         if (len(currNode.childNodes) == 0):
+
             #check whether we have reached an end state, if we have we stop further simulations
             #aka do not create child nodes
             if (ongoing(currNode.boardstate) == True):
@@ -237,14 +233,14 @@ def MCTS(boardstate: dict, agent: Agent) -> list:
 #function used to calculateUCB1 value
 def calcUCB1(childNode: Node) -> float:
 
-    if (childNode.totalGames == 0):
+    if (childNode.totalCells == 0):
         #return value beyond the possible score, to ensure that
         #we do not mix it up with the actual possible UCB1 value
-        return -343
+        return -1
 
-    x = float(childNode.wonGames/childNode.totalGames)
+    x = float(childNode.ourCells/childNode.totalCells)
     #constant 2 here may change depending on exploration etc.
-    y = 2 * sqrt(log(childNode.parentNode.totalGames)/(childNode.totalGames))
+    y = 2 * sqrt(log(childNode.parentNode.totalCells)/(childNode.totalCells))
 
     return (x + y)          
 
@@ -276,8 +272,9 @@ def simulateNode(currNode: Node, agent: Agent, startPlayer: PlayerColor) -> int:
         moves+= 1
 
     #win condition: since it is unlikely we can simulate until an end goal
-    #is achieved, after 15 moves from each side, we count the number of points from
-    #both ends and the side with more points shall be considered the "winner"
+    #is achieved, after 15 moves from each side, we count the number of cells
+    #from both ends, and return our cells, alongside the total number of cells,
+    #using them as a spectrum for how much advantage we hold
     numOwnCells = 0
     numOppCells = 0
 
@@ -288,11 +285,6 @@ def simulateNode(currNode: Node, agent: Agent, startPlayer: PlayerColor) -> int:
         else:
             numOppCells += cell[1]   
 
-    #should return 1 if won, 0 if lost
-        #if numOwnCells > numOppCells:
-            #return 1
-        #else:
-            #return 0
     return [numOwnCells, (numOwnCells + numOppCells)]        
 
 #function will be the heuristic used to determine moves
@@ -315,7 +307,8 @@ def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor) -> Ac
     #check the dangercells list
     if (len(dangerCells) != 0):
          
-        #try to get our cells out of danger
+        #try to get our cells out of danger, by attempting a variety
+        #of moves
         for cellPos in dangerCells:
 
             #attempt to see if we can spread to opp cell without losing value
@@ -337,6 +330,7 @@ def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor) -> Ac
                         return SpawnAction(newPos)
 
             #couldnt spread aggressively, couldnt spawn, try spread defensively
+            #attempt to spread the cell to a friendly cell
             for dir in HexDir:
                 newPos = cellPos.__add__(dir)
                 if (boardstate.get(newPos) != None):
@@ -519,9 +513,9 @@ def findBestMove(root: Node) -> Action:
                 break
         
         #else use UCB1 method
-        if (child.totalGames == 0):
+        if (child.totalCells == 0):
             continue
-        currWinRate = float(child.wonGames/child.totalGames)
+        currWinRate = float(child.ourCells/child.totalCells)
 
         if (currWinRate > bestWinRate):
             bestWinRate = currWinRate
