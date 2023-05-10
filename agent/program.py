@@ -52,16 +52,7 @@ class Agent:
 
         else:
             print("MCTS")
-            return MCTS(self.boardstate, self)
-
-        #match self._color:
-        #    case PlayerColor.RED:
-        #        return SpawnAction(HexPos(3, 3))
-        #    case PlayerColor.BLUE:
-        #        # This is going to be invalid... BLUE never spawned!
-        #        return SpreadAction(HexPos(3, 3), HexDir.Up)
-            
-            
+            return MCTS(self.boardstate, self)         
 
     def turn(self, color: PlayerColor, action: Action, **referee: dict):
         """
@@ -73,8 +64,6 @@ class Agent:
                 
                 #just add the cell into the list
                 self.boardstate[cell] = [color, 1]
-                print(self.boardstate.items())
-                pass
 
             case SpreadAction(cell, direction):
                 print(f"Testing: {color} SPREAD from {cell}, {direction}")
@@ -96,11 +85,12 @@ class Agent:
                     else:
                         oldPower = self.boardstate[newCellPos][1]
                         self.boardstate[newCellPos] = [color, oldPower+1]
+                        #remove if pow greater than 7
+                        if self.boardstate[newCellPos][1] >= 7:
+                            self.boardstate.pop(newCellPos)
 
                 #remove old (spreaded) cell
-                self.boardstate.pop(cell)        
-                print(self.boardstate.items())
-                pass        
+                self.boardstate.pop(cell)
     
 #we shall use this program to set up data structures necessary for 
 #an implementation of the Monte Carlo Tree Search (MCTS)
@@ -420,10 +410,12 @@ def updateSimulationBoard(simulatedBoard: dict, move: Action, currPlayer: Player
                 simulatedBoard[newCellPos] = [currPlayer, 1]
             else:
                 oldPower = simulatedBoard[newCellPos][1]
-                simulatedBoard[newCellPos] = [currPlayer, oldPower+1]    
+                simulatedBoard[newCellPos] = [currPlayer, oldPower+1]
+                if simulatedBoard[newCellPos][1] >= 7:
+                    simulatedBoard.pop(newCellPos)    
 
     if (type(move) == SpawnAction):
-        simulatedBoard[move.cell] = [currPlayer, 1]  
+        simulatedBoard[move.cell] = [currPlayer, 1]     
 
 
 #function will handle the logic of branching the leaf nodes
