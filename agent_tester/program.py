@@ -44,10 +44,10 @@ class Agent:
 
         if self.move_num == 0:
             self.move_num += 1
-            return SpawnAction(HexPos(0,2))
+            return SpawnAction(HexPos(2,6))
 
         if self.move_num == 1:
-            return SpreadAction(HexPos(0,2), HexDir.UpLeft)
+            return SpreadAction(HexPos(2,6), HexDir.UpLeft)
         #match self._color:
         #    case PlayerColor.RED:
         #        return SpawnAction(HexPos(3, 3))

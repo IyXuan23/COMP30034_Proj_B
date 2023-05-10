@@ -384,6 +384,8 @@ def moveHeuristic(boardstate: dict, agent: Agent, currPlayer: PlayerColor) -> Ac
 
     #check for a nearby cell that we can stack onto it
     for dir in HexDir:
+        if (biggestCellPos == None):
+            break
         smallerCellPos = biggestCellPos.__add__(dir)
         if boardstate.get(smallerCellPos) != None:
             if (boardstate[smallerCellPos][0] == currPlayer 
